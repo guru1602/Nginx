@@ -1,0 +1,79 @@
+nameOverride: 'vector-logagent'
+role: Agent
+
+rollWorkload: true
+
+persistence:
+  enabled: true
+  storageClassName: gp3
+  accessModes:
+      - ReadWriteOnce
+  size: 10Gi
+  finalizers:
+    - kubernetes.io/pvc-protection
+  hostPath:
+    path: "/var/lib/vector"
+
+nodeSelector: 
+  kubernetes.io/arch: amd64
+  kubernetes.io/os: linux
+
+customConfig:
+  data_dir: /var/lib/vector
+  api:
+    enabled: true
+    address: 127.0.0.1:8686
+    playground: false
+  sources:
+    kubernetes_logs:
+      type: kubernetes_logs
+      exclude_paths_glob_patterns:
+       - /var/log/containers/*_kube-system_*.log
+       - /var/log/pods/kube-system_*/*/*
+       - /var/log/containers/*_haproxy-ingress_*.log
+       - /var/log/pods/haproxy-ingress_*/*/*      
+  sinks:
+    loki_exporter:
+      type: loki
+      inputs:
+        - kubernetes_logs
+      endpoint: https://logs-prod-eu-west-0.grafana.net
+      auth:
+        user: 'user'
+        password: password
+        strategy: basic
+      labels:
+        forwarder: vector
+        cluster: prod-de-cluster
+        namespace: |-
+          {{ print "{{ kubernetes.pod_namespace }}" }}
+        pod: |-
+          {{ print "{{ kubernetes.pod_name }}" }}
+        container: |-
+          {{ print "{{ kubernetes.container_image }}" }}
+        ip: |-
+          {{ print "{{ kubernetes.pod_ip }}" }}
+        app: |-
+          {{ print "{{ kubernetes.pod_labels.app }}" }}
+      acknowledgements: false
+      healthcheck:
+        enabled: false
+      compression: snappy
+      encoding:
+        codec: text
+        timestamp_format: rfc3339
+    s3_exporter:
+      type: aws_s3
+      inputs: 
+        - kubernetes_logs
+      bucket: ivendi-application-logs
+      region: eu-west-2
+      auth: 
+       access_key_id: "access-key"
+       secret_access_key: "secret-key"
+       region: eu-west-2
+      compression: gzip
+      encoding:
+        codec: text
+        timestamp_format: rfc3339
+      key_prefix: "de-prod/{{ print \"{{ kubernetes.pod_namespace }}\" }}/%Y-%m-%d/"

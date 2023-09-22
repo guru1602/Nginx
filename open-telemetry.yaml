@@ -1,0 +1,37 @@
+mode: deployment
+
+ports:
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+config:
+  receivers:
+    jaeger: null
+    prometheus: null 
+    zipkin: null
+  exporters:
+    prometheusremotewrite:
+      endpoint: https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+      resource_to_telemetry_conversion:
+        enabled: true
+      headers:
+        Authorization: "Basic OTU4ODU1OmdsY19leUp2SWpvaU56TTVNekF6SWl3aWJpSTZJbkJ5YjJRdGNISnZiV1YwYUdWMWN5MXdiMnhwWTNrdGRHOXJaVzRpTENKcklqb2lRekk0YUU5eWIwSm1aRFEzTnprek9ETkxNbnBwY25CMUlpd2liU0k2ZXlKeUlqb2laWFVpZlgwPQ=="
+
+  service:
+    telemetry:
+      logs:
+        level: "debug"
+    pipelines:
+      logs: null
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter]
+        exporters: [prometheusremotewrite]
+      traces: null
+

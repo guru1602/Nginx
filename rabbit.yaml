@@ -1,0 +1,27 @@
+server:
+ log_level: info
+metrics:
+    wal_directory: /var/lib/agent/wal
+    global:
+      scrape_interval: 60s
+      external_labels:
+        cluster: 'prod-de-cluster'
+    configs:
+      - name: integrations
+        remote_write:
+          - url: https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+            basic_auth:
+              username: 'user'
+              password: 'password'
+        scrape_configs:
+          - job_name: 'prod-de-rabbitmq-metrics'
+            basic_auth:
+              username: rmq-de-prod-monitor
+              password: <password>
+            scheme: https  
+            static_configs:
+              - targets: ['*-01.in.rmq4.cloudamqp.com','*-02.in.rmq4.cloudamqp.com','*-03.in.rmq4.cloudamqp.com']
+            metric_relabel_configs:
+              - source_labels: [__name__]
+                regex: rabbitmq_queues|rabbitmq_build_info|rabbitmq_identity_info|rabbitmq_channels|rabbitmq_channel_consumers|rabbitmq_channels_opened_total|rabbitmq_channels_closed_total|rabbitmq_connections|rabbitmq_connections_opened_total|rabbitmq_connections_closed_total|rabbitmq_consumers|rabbitmq_queue_messages_ready|rabbitmq_queue_messages_unacked|rabbitmq_queues_declared_total|rabbitmq_queues_created_total|rabbitmq_queues_deleted_total|rabbitmq_resident_memory_limit_bytes|rabbitmq_disk_space_available_bytes|rabbitmq_process_max_fds|rabbitmq_process_open_fds|rabbitmq_process_max_tcp_sockets|rabbitmq_process_open_tcp_sockets|rabbitmq_process_resident_memory_bytes|rabbitmq_global_messages_received_total|rabbitmq_global_messages_redelivered_total|rabbitmq_global_messages_confirmed_total|rabbitmq_global_messages_routed_total|rabbitmq_global_messages_received_confirm_total|rabbitmq_global_messages_unroutable_dropped_total|rabbitmq_global_messages_delivered_consume_auto_ack_total|rabbitmq_global_messages_delivered_consume_manual_ack_total|rabbitmq_global_messages_acknowledged_total|rabbitmq_global_messages_delivered_get_auto_ack_total|rabbitmq_global_messages_get_empty_total|rabbitmq_global_messages_delivered_get_manual_ack_total|rabbitmq_global_messages_unroutable_returned_total
+                action: keep

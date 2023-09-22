@@ -1,0 +1,31 @@
+metrics:
+    wal_directory: /var/lib/agent/wal
+    global:
+      scrape_interval: 60s
+      external_labels:
+        cluster: 'prod-de-cluster'
+    configs:
+      - name: integrations
+        remote_write:
+          - url: https://prometheus-prod-01-eu-west-0.grafana.net/api/prom/push
+            basic_auth:
+              username: 'user'
+              password: 'password'
+        scrape_configs:
+          - job_name: 'prod-germany-mongo-metrics'
+            scrape_interval: 10s
+            metrics_path: /metrics
+            scheme: https
+            basic_auth:
+              username: user
+              password: password
+            http_sd_configs:
+              - url: https://cloud.mongodb.com/prometheus/v1.0/groups/<mongodb-cluster-id>/discovery?targetScheme=PRIVATE
+                refresh_interval: 60s
+                basic_auth:
+                  username: user
+                  password: password
+            metric_relabel_configs:
+              - source_labels: [__name__]
+                regex: mongodb_connections_active|mongodb_connections_available|mongodb_connections_current|mongodb_globalLock.*|mongodb_indexStats_count|mongodb_info|mongodb_localTime|mongodb_mem_bits|mongodb_mem_resident|mongodb_mem_supported|mongodb_mem_virtual|mongodb_members_health|mongodb_members_id|mongodb_members_self|mongodb_members_state|mongodb_wiredTiger_concurrentTransactions.*|mongodb_up|mongodb_uptime|mongodb_ok|mongodb_opLatencies.*|mongodb_opcounters_insert|mongodb_opcounters_update|mongodb_opcounters_query|mongodb_opcounters_delete|mongodb_opcounters_command
+                action: keep    

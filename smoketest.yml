@@ -1,0 +1,68 @@
+---
+- hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Validate Host
+      uri:
+        headers:
+          Host: '{{ item.host }}'
+        url: http://{{ item.host }}{{ item.path }}
+        return_content: yes
+        method: GET
+#        body_format: json
+        status_code: '{{ item.status | default(200, true) }}'
+      with_items:
+        - { host: dealerplatform.demo.de.ivendi.com, 
+            path: '/iamivendi', 
+            content: 'dealerplatform de; uat API, uat UI'
+          }
+        - { host: qw3.demo.de.ivendi.com, 
+            path: '/iamquoteware', 
+            content: 'iamquoteware de demo' 
+          }
+        - { host: demo.de.newvehicle.com, 
+            path: '/iam', 
+            content: 'demo.de.newvehicle config'
+          }
+        - { host: my.demo.de.newvehicle.com, 
+            path: '/iam', 
+            content: 'my de demo newvehicle config'
+          }
+        - { host: webshops.demo.de.newvehicle.com, 
+            path: '/iam', 
+            content: 'webshops engage de uat nv config' 
+          }
+        - { host: webshops.webshops-demo.de.newvehicle.com, 
+            path: '/iam', 
+            content: 'webshops multitenant branched de-demo config'
+          } # api would have no proxy as its direct to container
+#      when: env == "de.uat"
+      register: response
+      failed_when: item.content not in response.content
+    - name: Show what type of variable response is
+      debug:
+        msg: "{{ response.results[0].content }}"
+   
+   
+   
+   
+    # - name: print dict variable
+    #   debug: msg "key is {{item.key}} value is {{item.value}}"  
+    #   loop: "{{ lookup('ansible.builtin.dict', response) }}"   
+    # - name: Loop over subelements of the dictionary
+    #   debug: var=response.content
+    # - name: Show what type of data the response variable is made up of
+    #   debug:
+    #     msg: "{{ item | type_debug }}"
+    #   loop: "{{ response }}"
+
+    # - name: show the output of results content
+    #   debug: var=response.results[0].content
+    # - name: show the output of item content
+    #   debug: var=response.results[0].item.content
+    # - name: validate host response
+    #   assert:
+    #     that:
+    #      -  response.results[0].item.content == response.item[0].content
+

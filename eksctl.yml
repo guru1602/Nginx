@@ -1,0 +1,108 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: ivendi-staging-eks-cluster
+  region: eu-west-2
+  version: "1.22"
+
+cloudWatch:
+  clusterLogging:
+      enableTypes: ["audit", "authenticator", "controllerManager"]
+      logRetentionInDays: 60
+
+iam:
+  withOIDC: true
+
+# Kept to a minimum
+vpc:
+  id: 'vpc-03b20085f3beac6f8'
+  securityGroup: 'sg-08afdba978a9953d5' # this is the ControlPlaneSecurityGroup
+  publicAccessCIDRs:
+        - "18.132.208.134/32"
+        - "18.135.144.65/32"
+        - "35.176.189.188/32"
+        - "35.156.247.151/32"
+  subnets:
+    private:
+      private1:
+        id: 'subnet-080a93ee6ec897c0a'
+      private2:
+        id: 'subnet-0fcc85e4bd0aa9d90'
+      private3:
+        id: 'subnet-0a9f0740626e58f5b'
+
+
+### NODE GROUPS CREATED VIA EKSCTL
+nodeGroups:
+  # WINDOWS NODE
+  - name: eks-nt-workers-fire-chicken
+    amiFamily: WindowsServer2019CoreContainer
+    containerRuntime: containerd
+    disableIMDSv1: true
+    maxPodsPerNode: 10
+    instancesDistribution:
+      instanceTypes: ["c5a.xlarge"] # At least one instance type should be specified
+      onDemandBaseCapacity: 0
+      onDemandPercentageAboveBaseCapacity: 50
+      spotAllocationStrategy: 'capacity-optimized-prioritized'
+    desiredCapacity: 1
+    volumeSize: 50
+    volumeType: gp3
+    volumeEncrypted: true
+    privateNetworking: true
+    subnets:
+      - 'subnet-080a93ee6ec897c0a'
+      - 'subnet-0fcc85e4bd0aa9d90'
+      - 'subnet-0a9f0740626e58f5b'
+    asgMetricsCollection:
+      - granularity: 1Minute
+        metrics:
+          - GroupMinSize
+          - GroupMaxSize
+          - GroupDesiredCapacity
+          - GroupInServiceInstances
+          - GroupPendingInstances
+          - GroupStandbyInstances
+          - GroupTerminatingInstances
+          - GroupTotalInstances
+    securityGroups:
+      withShared: false
+      withLocal: false
+      attachIDs:
+        - sg-0d70df7e45362d84a
+        - sg-02722aa9c18991bd6
+        - sg-03595e39e73464e9f
+    iam:
+      instanceRoleARN: arn:aws:iam::379589092172:role/ivendi-staging-eks-cluster_nt_workerinstance_role
+    taints:
+      - key: OS
+        value: "Windows"
+        effect: NoSchedule
+    labels:
+      nodeclass: windows2019
+      role: workers
+    tags:
+      k8s.io/cluster-autoscaler/ivendi-staging-eks-cluster: 'owned'
+      k8s.io/cluster-autoscaler/enabled: 'true'
+    # overrideBootstrapCommand: |
+    #     <powershell>
+    #     [string]$EKSBinDir = "$env:ProgramFiles\Amazon\EKS"
+    #     [string]$EKSBootstrapScriptName = 'Start-EKSBootstrap.ps1'
+    #     [string]$EKSBootstrapScriptFile = "$EKSBinDir\$EKSBootstrapScriptName"
+    #     (Get-Content $EKSBootstrapScriptFile).replace('"--proxy-mode=kernelspace",', '"--proxy-mode=kernelspace", "--feature-gates WinDSR=true", "--enable-dsr",') | S>    #     & $EKSBootstrapScriptFile -EKSClusterName "ivendi-staging-eks-cluster" -APIServerEndpoint "https://FB2B3F4BFCEA63065FDB405D1776CEA5.yl4.eu-central-1.eks.amazo>    #     </powershell>
+
+
+addons:
+  - name: vpc-cni # no version is specified so it deploys the default version
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+      #- arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+  - name: coredns
+    version: latest # auto discovers the latest available
+  - name: kube-proxy
+    version: latest
+  - name: externalDNS
+
+secretsEncryption:
+  keyARN: kms-key-arn

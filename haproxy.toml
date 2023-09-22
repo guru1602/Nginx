@@ -1,0 +1,26 @@
+[api]
+enabled = true
+
+[sources.stats]
+type = "http_client"
+endpoint = "http://0.0.0.0:9000/stats;json"
+scrape_interval_secs = 30
+
+[transforms.tolog]
+type = "metric_to_log"
+inputs = [ "stats" ]
+
+[transforms.modify]
+type = "remap"
+inputs = [ "tolog" ]
+source = '''
+   . = parse_json!(.message)
+   .service_name = (.message.name)
+'''
+
+[sinks.console]
+type = "console"
+inputs = ["modify"]
+[sinks.console.encoding]
+codec = "json"
+only_fields = ["service_name"] 

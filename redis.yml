@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:      
+  name: de-uat-dealer-redis-cache
+  namespace: infra-de-uat 
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: de-uat-dealer-redis-cache
+      role: master
+      tier: backend
+  serviceName: de-uat-dealer-redis-cache
+  template:
+    metadata:      
+      labels:
+        app: de-uat-dealer-redis-cache
+        role: master
+        tier: backend
+    spec:
+      containers:
+      - args:
+        - --requirepass
+        - changeit
+        image: redis:6.2.1
+        imagePullPolicy: IfNotPresent
+        name: de-uat-dealer-redis-cache
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: redis
+        name: config-map
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: default      
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      volumeMode: Filesystem
+    status:
+      phase: Pending
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: default      
+      name: conf
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      volumeMode: Filesystem
+   
+---
+apiVersion: v1
+kind: Service
+metadata:  
+  name: de-uat-dealer-redis-cache-svc
+  namespace: infra-de-uat 
+spec:  
+  ports:
+  - name: http
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: de-uat-dealer-redis-cache
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana-agent
+  namespace: grafana-de-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: grafana-agent
+  serviceName: grafana-agent
+  template:
+    metadata:
+      labels:
+        name: grafana-agent
+    spec:
+      containers:
+      - args:
+        - -config.file=/etc/agent/agent.yaml
+        - -enable-features=integrations-next
+        - -server.http.address=0.0.0.0:80
+        command:
+        - /bin/agent
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: grafana/agent:v0.27.1
+        imagePullPolicy: IfNotPresent
+        name: grafana-agent
+        ports:
+        - containerPort: 80
+          name: http-metrics
+        volumeMounts:
+        - mountPath: /var/lib/agent
+          name: agent-wal
+        - mountPath: /etc/agent
+          name: grafana-agent
+        - name: rootfs
+          mountPath: /host/root
+          readOnly: true
+        - name: sysfs
+          mountPath: /host/sys
+          readOnly: true
+        - name: procfs
+          mountPath: /host/proc
+          readOnly: true
+      hostPID: true
+      serviceAccountName: grafana-agent
+      volumes:
+      - configMap:
+          name: grafana-agent
+        name: grafana-agent
+      - name: rootfs
+        hostPath:
+         path: /
+      - name: sysfs
+        hostPath:
+         path: /sys
+      - name: procfs
+        hostPath:
+         path: /proc        
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: agent-wal
+      namespace: grafana-de-prod
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-agent
+  namespace: grafana-de-prod
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: grafana-agent
+  name: grafana-agent
+  namespace: grafana-de-prod
+spec:
+  clusterIP: None
+  ports:
+  - name: grafana-agent-http-metrics
+    port: 80
+    targetPort: 80
+  selector:
+    name: grafana-agent
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-agent
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-agent
+subjects:
+- kind: ServiceAccount
+  name: grafana-agent
+  namespace: grafana-de-prod
+
+
+# kubectl create cm grafana-agent --from-file=agent.yaml -n grafana
+# kubectl get cm -n grafana
+# kubectl describe cm garfana-agent -n grafana
+# kubectl delete cm grafana-agent -n grafana
+
+# kubectl create cm test-agent --from-file=testconfigmap.yml -n grafana
+#kubectl run app1 --image=nginx --dry-run=client -o yaml > app1.yml
+# kubectl apply --validate=true --dry-run=client --filename=deploy.yaml

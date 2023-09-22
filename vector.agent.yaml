@@ -1,0 +1,71 @@
+nameOverride: "vector-agent"
+role: Stateless-Aggregator
+
+rollWorkload: true
+
+persistence:
+  enabled: true
+  storageClassName: gp3
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+customConfig:
+    data_dir: /vector-data
+
+    api:
+      enabled: true
+      address: 127.0.0.1:8686
+      playground: false
+
+    sources:
+      vector_src:
+        type: vector
+        acknowledgements: false
+        address: 0.0.0.0:9000
+        version: "2"
+      datadog_agent_src:
+        address: 0.0.0.0:8282
+        type: datadog_agent
+      internal_metrics_src:
+        type: internal_metrics
+      statsd_src:
+        address: 0.0.0.0:8125
+        mode: udp
+        type: statsd
+      statsd_tcp_src:
+        address: 0.0.0.0:8126
+        mode: tcp
+        type: statsd
+
+    transforms:
+      statsd_trans:
+        type: remap
+        inputs:
+          - statsd_src
+        source: 
+          . = map_keys(., recursive:true) -> |key| { replace(replace(key, ".", "_"), "-", "_") };
+
+    sinks:
+      prom_exporter:
+        type: prometheus_remote_write
+        inputs:
+          - internal_metrics_src
+          - statsd_trans
+          - statsd_tcp_src
+          # - graphana_agent_src
+        endpoint: "https://prometheus-prod-05-gb-south-0.grafana.net/api/prom/push"
+        auth:
+          user: 'user'
+          password: password
+          strategy: basic
+      datadog_metrics_exporter:
+        type: datadog_metrics
+        inputs:
+          - vector_src
+          - datadog_agent_src
+          # - remap_metrics_for_datadog
+        default_api_key: "api-key"
+        region: eu
+        site: "datadoghq.eu"

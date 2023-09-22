@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: de-uat-dealer-eventstore
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: eventstore
+    app.kubernetes.io/name: de-uat-dealer-eventstore
+  namespace: infra-de-uat
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: eventstore
+      app.kubernetes.io/name: de-uat-dealer-eventstore
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: database
+        app.kubernetes.io/instance: eventstore
+        app.kubernetes.io/name: de-uat-dealer-eventstore
+    spec:
+      containers:
+        - env:
+            - name: EVENTSTORE_INT_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP            
+            - name: EVENTSTORE_EXT_HOST_ADVERTISE_AS
+              value: de-uat-dealer-eventstore-svc.infra-de-uat.svc.cluster.local
+            - name: EVENTSTORE_EXT_IP
+              value: 0.0.0.0
+            - name: EVENTSTORE_WRITE_STATS_TO_DB
+              value: 'false'
+            - name: EVENTSTORE_RUN_PROJECTIONS
+              value: All
+            - name: EVENTSTORE_START_STANDARD_PROJECTIONS
+              value: 'true'
+            - name: EVENTSTORE_INSECURE
+              value: 'false'
+            - name: EVENTSTORE_CLUSTER_SIZE
+              value: '1'
+          image: ivendiops.azurecr.io/ivendi/ivendi-eventstoredb:21.10.7-bionic
+          imagePullPolicy: IfNotPresent
+          name: eventstore
+          ports:
+            - containerPort: 1113
+              name: 1113tcp
+              protocol: TCP
+            - containerPort: 2113
+              name: 2113tcp
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 2113
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 2113
+            timeoutSeconds: 1
+          startupProbe:
+            failureThreshold: 3
+            successThreshold: 1
+            initialDelaySeconds: 10
+            timeoutSeconds: 1
+            periodSeconds: 10
+            tcpSocket:
+              port: 2113
+          terminationMessagePath: /stage/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/eventstore
+              name: data
+          resources: {}
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: ops-registry
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:       
+        fsGroup: 2000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 60
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data
+  replicas: 1
+  revisionHistoryLimit: 10
+  serviceName: eventstore
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        labels:
+          app.kubernetes.io/instance: eventstore
+          app.kubernetes.io/name: de-uat-dealer-eventstore
+        name: data
+        namespace: infra-de-uat
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+        volumeMode: Filesystem
+        storageClassName: gp2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: de-uat-dealer-eventstore-svc
+  namespace: infra-de-uat
+spec:
+  ports:
+   - name: http
+     port: 2113
+     protocol: TCP
+     targetPort: 2113
+   - name: tcp
+     port: 1113
+     protocol: TCP
+     targetPort: 1113
+  selector:
+    app.kubernetes.io/name: de-uat-dealer-eventstore
+  sessionAffinity: None
+  type: ClusterIP

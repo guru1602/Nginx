@@ -1,0 +1,55 @@
+targetSystem: "linux"
+datadog:
+  apiKey: <api-key>
+  appKey: <app-key>
+  clusterName: "prod-de-cluster-d"
+  logLevel: "error"
+  nonLocalTraffic: true
+  dogstatsd:
+    nonLocalTraffic: true
+    useHostPort: true
+  podLabelsAsTags: 
+    app: "kube_app"
+    release: "IMAGE_VERSION"
+  site: "datadoghq.eu"
+  tags: []
+  collectEvents: true
+  orchestratorExplorer:
+    enabled: true
+  kubeStateMetricsCore:
+   enabled: true
+   image: 
+     repository: k8s.gcr.io/kube-state-metrics/kube-state-metrics
+     tag: v1.9.8
+     pullPolicy:  IfNotPresent
+   rbac:
+    create: true
+    serviceAccountName: default
+   replicas: 1  
+clusterAgent:
+  replicas: 2
+  rbac:
+    create: true
+    serviceAccountName: default
+  metricsProvider:
+    enabled: true
+    createReaderRbac: true
+    useDatadogMetrics: true
+    service:
+      type: ClusterIP
+      port: 8443
+agents:
+  rbac:
+    create: true
+    serviceAccountName: default
+clusterChecksRunner:
+  enabled: true
+  image:
+    repository: gcr.io/datadoghq/agent
+    tag: 7.33.0
+    pullPolicy: IfNotPresent
+  rbac:
+    create: true
+    serviceAccountName: default
+  replicas: 2
+

@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: de-uat-nv-eventstore
+  namespace: infra-de-staging
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: eventstore
+    app.kubernetes.io/name: de-uat-nv-eventstore
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: eventstore
+      app.kubernetes.io/name: de-uat-nv-eventstore
+  serviceName: eventstore
+  template:
+    metadata:      
+      labels:
+        app.kubernetes.io/component: database
+        app.kubernetes.io/instance: eventstore
+        app.kubernetes.io/name: de-uat-nv-eventstore
+    spec:
+      containers:
+      - env:
+        - name: EVENTSTORE_INSECURE
+          value: "true"
+        - name: EVENTSTORE_START_STANDARD_PROJECTIONS
+          value: "true"
+        - name: EVENTSTORE_RUN_PROJECTIONS
+          value: All
+        - name: EVENTSTORE_WRITE_STATS_TO_DB
+          value: "false"
+        - name: EVENTSTORE_INT_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: EVENTSTORE_EXT_IP
+          value: 0.0.0.0
+        - name: EVENTSTORE_CLUSTER_SIZE
+          value: "1"
+        - name: EVENTSTORE_EXT_HOST_ADVERTISE_AS
+          value: de-uat-nv-eventstore-svc.infra-de-staging.svc.cluster.local
+        - name: EVENTSTORE_EXT_IP_ADVERTISE_AS
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        image: ivendi/eventstoredb-dev:v5.0.9-1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ping
+            port: 2113
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: eventstore
+        ports:
+        - containerPort: 1113
+          protocol: TCP
+        - containerPort: 2113
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ping
+            port: 2113
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources: {}
+        terminationMessagePath: /uat/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/eventstore
+          name: data
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: azure-docker
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: data
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app.kubernetes.io/instance: eventstore
+        app.kubernetes.io/name: de-uat-nv-eventstore
+      name: data
+      namespace: infra-de-staging
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+      volumeMode: Filesystem
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: de-uat-nv-eventstore-svc
+  namespace: infra-de-staging
+spec:
+  ports:
+   - name: http
+     port: 2113
+     protocol: TCP
+     targetPort: 2113
+   - name: tcp
+     port: 1113
+     protocol: TCP
+     targetPort: 1113
+  selector:
+    app.kubernetes.io/name: de-uat-nv-eventstore
+  sessionAffinity: None
+  type: ClusterIP

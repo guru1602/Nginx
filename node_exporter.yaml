@@ -1,0 +1,25 @@
+image:
+  pullPolicy: IfNotPresent
+  registry: quay.io
+  repository: prometheus/node-exporter
+imagePullSecrets: null
+
+nodeSelector: 
+  kubernetes.io/arch: amd64
+  kubernetes.io/os: linux
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: 'true'
+  prometheus.io/path: /metrics
+  prometheus.io/port: "9100"
+  prometheus.io/scrape: "true"
+
+service:
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/path: /metrics
+  listenOnAllInterfaces: true
+  nodePort: null
+  port: 9100
+  portName: metrics
+  targetPort: 9100
+  type: ClusterIP
