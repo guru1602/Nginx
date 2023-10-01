@@ -8,8 +8,8 @@ region = 'eu-central-1' # e.g. us-west-1
 service = 'es'
 
 credentials = {
-    'access_key': 'AKIAVQYKF4NGM4ORASWM',
-    'secret_key': 'gydQJAqByQPVcB/scbj2THlBVASLVAqpS8yNkUWZ'
+    'access_key': '',
+    'secret_key': ''
 }
 
 awsauth = AWS4Auth(credentials['access_key'], credentials['secret_key'], region, service)
